@@ -1,84 +1,54 @@
-import os
-import pickle
-import mediapipe as mp
-import cv2
+import os  # Import the os module for interacting with the operating system (e.g., file system operations)
+import cv2  # Import OpenCV for image and video processing
 
-# Initialize Mediapipe Hands
-mp_hands = mp.solutions.hands
-mp_drawing = mp.solutions.drawing_utils
-mp_drawing_styles = mp.solutions.drawing_styles
-
-# Initialize the hands module with a lower detection confidence
-hands = mp_hands.Hands(static_image_mode=True, min_detection_confidence=0.2)
-
+# Directory where the dataset will be stored
 DATA_DIR = 'data'
 
-# Initialize data and labels
-data = []
-labels = []
-
-# Check if DATA_DIR exists
+# Check if the data directory exists; if not, create it
 if not os.path.exists(DATA_DIR):
-    raise FileNotFoundError(f"The directory '{DATA_DIR}' does not exist. Please check the path.")
+    os.makedirs(DATA_DIR)
 
-# Iterate through directories in DATA_DIR
-for dir_ in os.listdir(DATA_DIR):
-    dir_path = os.path.join(DATA_DIR, dir_)
-    if not os.path.isdir(dir_path):
-        print(f"Skipping non-directory item: {dir_}")
-        continue  # Skip files like .gitignore or other non-folder items
+# Define the number of classes (categories) for the dataset
+number_of_classes = 3
 
-    print(f"Processing directory: {dir_}")
-    for img_path in os.listdir(dir_path):
-        img_file_path = os.path.join(dir_path, img_path)
-        if not os.path.isfile(img_file_path):
-            print(f"Skipping non-file item: {img_path}")
-            continue
+# Define the number of images to collect for each class
+dataset_size = 100
 
-        try:
-            data_aux = []
-            x_ = []
-            y_ = []
+# Open a connection to the default camera (index 0)
+cap = cv2.VideoCapture(0)
 
-            # Load and process the image
-            img = cv2.imread(img_file_path)
-            if img is None:
-                print(f"Error loading image: {img_file_path}")
-                continue
+# Loop through each class to collect data
+for j in range(number_of_classes):
+    # Create a subdirectory for the current class if it doesn't exist
+    if not os.path.exists(os.path.join(DATA_DIR, str(j))):
+        os.makedirs(os.path.join(DATA_DIR, str(j)))
 
-            img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    # Inform the user which class is being processed
+    print('Collecting data for class {}'.format(j))
 
-            # Detect hand landmarks
-            results = hands.process(img_rgb)
+    done = False  # Flag to control readiness prompt
+    while True:  # Display a readiness message to the user
+        ret, frame = cap.read()  # Capture a frame from the camera
+        # Add a message overlay on the frame to prompt the user
+        cv2.putText(frame, 'Ready? Press "Q" ! :)', (100, 50), cv2.FONT_HERSHEY_SIMPLEX, 1.3, (0, 255, 0), 3,
+                    cv2.LINE_AA)
+        cv2.imshow('frame', frame)  # Show the frame to the user
+        # Wait for the user to press 'q' to start data collection
+        if cv2.waitKey(25) == ord('q'):
+            break
 
-            if results.multi_hand_landmarks:
-                # Process detected hands
-                for hand_landmarks in results.multi_hand_landmarks:
-                    for i in range(len(hand_landmarks.landmark)):
-                        x = hand_landmarks.landmark[i].x
-                        y = hand_landmarks.landmark[i].y
+    # Initialize a counter to track the number of images collected
+    counter = 0
+    while counter < dataset_size:  # Collect images until the dataset size is reached
+        ret, frame = cap.read()  # Capture a frame from the camera
+        cv2.imshow('frame', frame)  # Display the frame
+        cv2.waitKey(25)  # Wait briefly to allow frame rendering
+        # Save the current frame as an image file in the respective class directory
+        cv2.imwrite(os.path.join(DATA_DIR, str(j), '{}.jpg'.format(counter)), frame)
+        counter += 1  # Increment the counter
 
-                        x_.append(x)
-                        y_.append(y)
+# Release the camera resource
+cap.release()
 
-                    # Normalize coordinates relative to the hand's position
-                    for i in range(len(hand_landmarks.landmark)):
-                        x = hand_landmarks.landmark[i].x
-                        y = hand_landmarks.landmark[i].y
-                        data_aux.append(x - min(x_))
-                        data_aux.append(y - min(y_))
-
-                data.append(data_aux)
-                labels.append(dir_)
-            else:
-                print(f"No hands detected in image: {img_file_path}")
-
-        except Exception as e:
-            print(f"Error processing image {img_file_path}: {e}")
-
-# Save the processed data
-output_file = 'data.pickle'
-with open(output_file, 'wb') as f:
-    pickle.dump({'data': data, 'labels': labels}, f)
-
-print(f"Dataset successfully created and saved to '{output_file}'.")
+# Close all OpenCV windows
+cv2.destroyAllWindows()

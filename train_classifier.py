@@ -1,39 +1,43 @@
-import pickle
-import numpy as np
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score
+import pickle  # Import the pickle module for loading and saving serialized data
 
-# Load the data
-data_dict = pickle.load(open('data.pickle', 'rb'))
+# Import necessary modules from scikit-learn for model creation, splitting datasets, and evaluation
+from sklearn.ensemble import RandomForestClassifier  # RandomForestClassifier for classification tasks
+from sklearn.model_selection import train_test_split  # For splitting data into training and testing sets
+from sklearn.metrics import accuracy_score  # For measuring the accuracy of the model
+import numpy as np  # Import NumPy for efficient numerical computations
 
-# Check the maximum length of sequences
-max_length = max(len(entry) for entry in data_dict['data'])
+# Load the data dictionary from a serialized pickle file
+data_dict = pickle.load(open('./data.pickle', 'rb'))  # Load the data and labels from 'data.pickle'
 
-# Pad or truncate the sequences to the max length
-data = np.array([np.pad(entry, (0, max_length - len(entry)), mode='constant') if len(entry) < max_length else entry[:max_length] for entry in data_dict['data']])
+# Extract the data and labels arrays from the dictionary and convert them to NumPy arrays
+data = np.asarray(data_dict['data'])  # Convert the feature data to a NumPy array
+labels = np.asarray(data_dict['labels'])  # Convert the labels to a NumPy array
 
-# Convert labels to a NumPy array
-labels = np.asarray(data_dict['labels'])
+# Split the data into training and testing sets
+x_train, x_test, y_train, y_test = train_test_split(
+    data,  # Feature data
+    labels,  # Corresponding labels
+    test_size=0.2,  # Allocate 20% of the data for testing
+    shuffle=True,  # Shuffle the data before splitting
+    stratify=labels  # Ensure class proportions are consistent in train and test sets
+)
 
-# Ensure that labels match the length of data
-assert len(data) == len(labels), "Mismatch between data and labels length."
+# Create an instance of the RandomForestClassifier
+model = RandomForestClassifier()  # Initialize the Random Forest Classifier with default parameters
 
-# Split the data
-x_train, x_test, y_train, y_test = train_test_split(data, labels, test_size=0.2, shuffle=True, stratify=labels)
+# Train the model using the training data
+model.fit(x_train, y_train)  # Fit the model to the training features and labels
 
-# Train the model
-model = RandomForestClassifier()
+# Make predictions on the testing set
+y_predict = model.predict(x_test)  # Predict the labels for the test data
 
-model.fit(x_train, y_train)
+# Calculate the accuracy of the model's predictions
+score = accuracy_score(y_predict, y_test)  # Compare predicted labels with actual test labels to compute accuracy
 
-# Predict and evaluate
-y_predict = model.predict(x_test)
+# Print the accuracy score as a percentage
+print('{}% of samples were classified correctly !'.format(score * 100))  # Display the classification accuracy
 
-score = accuracy_score(y_predict, y_test)
-
-print('{}% of samples were classified correctly!'.format(score * 100))
-
-# Save the model
-with open('model.p', 'wb') as f:
-    pickle.dump({'model': model}, f)
+# Save the trained model to a pickle file
+f = open('model.p', 'wb')  # Open a file named 'model.p' in write-binary mode
+pickle.dump({'model': model}, f)  # Serialize and save the model in the file
+f.close()  # Close the file after saving

@@ -1,113 +1,90 @@
-import pickle
-import cv2
-import mediapipe as mp
-import numpy as np
-import os
+import pickle  # Import pickle for loading the saved model
+import cv2  # Import OpenCV for video capture and image processing
+import mediapipe as mp  # Import MediaPipe for hand detection and landmark estimation
+import numpy as np  # Import NumPy for array manipulation
 
-# Suppress TensorFlow warnings
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+# Load the pre-trained model from a pickle file
+model_dict = pickle.load(open('./model.p', 'rb'))  # Load the model dictionary from the file 'model.p'
+model = model_dict['model']  # Extract the actual model object from the dictionary
 
-# Load the model safely
-try:
-    model_dict = pickle.load(open('model.p', 'rb'))
-    model = model_dict.get('model')
-    if model is None:
-        raise ValueError("The model could not be loaded. Ensure 'model.p' contains a valid model.")
-except FileNotFoundError:
-    print("Error: 'model.p' file not found. Make sure the file is in the current directory.")
-    exit()
-except Exception as e:
-    print(f"Error loading model: {e}")
-    exit()
-
-# Initialize video capture
+# Initialize video capture from the default camera (device 0)
 cap = cv2.VideoCapture(0)
-if not cap.isOpened():
-    print("Error: Unable to access the camera. Please check your camera connection.")
-    exit()
 
-# Initialize MediaPipe
-mp_hands = mp.solutions.hands
-mp_drawing = mp.solutions.drawing_utils
-mp_drawing_styles = mp.solutions.drawing_styles
+# Initialize MediaPipe Hands solution components
+mp_hands = mp.solutions.hands  # MediaPipe Hands module for hand detection
+mp_drawing = mp.solutions.drawing_utils  # Utility functions for drawing landmarks
+mp_drawing_styles = mp.solutions.drawing_styles  # Predefined styles for landmarks and connections
 
+# Create a MediaPipe Hands object with static image mode and minimum detection confidence
 hands = mp_hands.Hands(static_image_mode=True, min_detection_confidence=0.3)
 
-# Labels dictionary
-labels_dict = {0: 'A', 1: 'B', 2: 'L'}
+# Define a dictionary to map model prediction outputs to labels
+labels_dict = {0: 'A', 1: 'B', 2: 'C'}  # Example labels for hand gesture classes
 
-print("Starting the application. Press 'q' to exit.")
-
-# Main loop
+# Main loop for real-time video processing
 while True:
-    try:
-        data_aux = []
-        x_ = []
-        y_ = []
 
-        ret, frame = cap.read()
-        if not ret:
-            print("Error: Unable to read from the camera. Exiting...")
-            break
+    data_aux = []  # List to store normalized hand landmark data for the current frame
+    x_ = []  # List to store x-coordinates of landmarks
+    y_ = []  # List to store y-coordinates of landmarks
 
-        H, W, _ = frame.shape
+    # Capture a frame from the video feed
+    ret, frame = cap.read()  # `ret` indicates if the frame was captured successfully, `frame` is the captured image
 
-        # Convert to RGB for MediaPipe
-        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    H, W, _ = frame.shape  # Get the height, width, and channels of the frame
 
-        # Process the frame for hand landmarks
-        results = hands.process(frame_rgb)
-        if results.multi_hand_landmarks:
-            for hand_landmarks in results.multi_hand_landmarks:
-                # Draw landmarks on the frame
-                mp_drawing.draw_landmarks(
-                    frame,
-                    hand_landmarks,
-                    mp_hands.HAND_CONNECTIONS,
-                    mp_drawing_styles.get_default_hand_landmarks_style(),
-                    mp_drawing_styles.get_default_hand_connections_style()
-                )
+    frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)  # Convert the frame from BGR to RGB (MediaPipe requires RGB)
 
-                for i in range(len(hand_landmarks.landmark)):
-                    x = hand_landmarks.landmark[i].x
-                    y = hand_landmarks.landmark[i].y
-                    x_.append(x)
-                    y_.append(y)
+    results = hands.process(frame_rgb)  # Process the frame to detect hand landmarks
 
-                for i in range(len(hand_landmarks.landmark)):
-                    x = hand_landmarks.landmark[i].x
-                    y = hand_landmarks.landmark[i].y
-                    data_aux.append(x - min(x_))
-                    data_aux.append(y - min(y_))
+    if results.multi_hand_landmarks:  # Check if hand landmarks were detected
+        for hand_landmarks in results.multi_hand_landmarks:
+            # Draw the detected hand landmarks on the frame
+            mp_drawing.draw_landmarks(
+                frame,  # The frame to draw on
+                hand_landmarks,  # The detected hand landmarks
+                mp_hands.HAND_CONNECTIONS,  # Draw connections between landmarks
+                mp_drawing_styles.get_default_hand_landmarks_style(),  # Style for landmarks
+                mp_drawing_styles.get_default_hand_connections_style())  # Style for connections
 
-            # Get bounding box
-            x1 = int(min(x_) * W) - 10
-            y1 = int(min(y_) * H) - 10
-            x2 = int(max(x_) * W) - 10
-            y2 = int(max(y_) * H) - 10
+        # Process each detected hand
+        for hand_landmarks in results.multi_hand_landmarks:
+            for i in range(len(hand_landmarks.landmark)):
+                x = hand_landmarks.landmark[i].x  # Extract the x-coordinate
+                y = hand_landmarks.landmark[i].y  # Extract the y-coordinate
 
-            # Make prediction
-            try:
-                prediction = model.predict([np.asarray(data_aux)])
-                predicted_character = labels_dict.get(int(prediction[0]), "Unknown")
-                # Draw the prediction
-                cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 0, 0), 4)
-                cv2.putText(frame, predicted_character, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 1.3, (0, 0, 0), 3,
-                            cv2.LINE_AA)
-            except Exception as e:
-                print(f"Prediction error: {e}")
+                x_.append(x)  # Append x-coordinate to the list
+                y_.append(y)  # Append y-coordinate to the list
 
-        # Display the frame
-        cv2.imshow('frame', frame)
+            # Normalize landmark coordinates relative to the minimum x and y values
+            for i in range(len(hand_landmarks.landmark)):
+                x = hand_landmarks.landmark[i].x
+                y = hand_landmarks.landmark[i].y
+                data_aux.append(x - min(x_))  # Normalize x-coordinate
+                data_aux.append(y - min(y_))  # Normalize y-coordinate
 
-        # Exit if 'q' is pressed
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
+        # Calculate bounding box coordinates for the detected hand
+        x1 = int(min(x_) * W) - 10  # Top-left x-coordinate
+        y1 = int(min(y_) * H) - 10  # Top-left y-coordinate
+        x2 = int(max(x_) * W) - 10  # Bottom-right x-coordinate
+        y2 = int(max(y_) * H) - 10  # Bottom-right y-coordinate
 
-    except Exception as e:
-        print(f"Unexpected error: {e}")
-        break
+        # Predict the hand gesture using the model
+        prediction = model.predict([np.asarray(data_aux)])  # Pass the normalized data to the model for prediction
 
-# Cleanup
+        # Map the predicted class index to the corresponding label
+        predicted_character = labels_dict[int(prediction[0])]
+
+        # Draw a rectangle around the detected hand
+        cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 0, 0), 4)
+        # Display the predicted character above the rectangle
+        cv2.putText(frame, predicted_character, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 1.3, (0, 0, 0), 3,
+                    cv2.LINE_AA)
+
+    # Display the processed frame with predictions
+    cv2.imshow('frame', frame)
+    cv2.waitKey(1)  # Wait for 1 ms for a key press
+
+# Release the video capture object and close all OpenCV windows
 cap.release()
 cv2.destroyAllWindows()
