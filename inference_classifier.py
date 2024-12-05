@@ -19,7 +19,7 @@ mp_drawing_styles = mp.solutions.drawing_styles  # Predefined styles for landmar
 hands = mp_hands.Hands(static_image_mode=True, min_detection_confidence=0.3)
 
 # Define a dictionary to map model prediction outputs to labels
-labels_dict = {0: 'A', 1: 'B', 2: 'C', 3:'D', 4:'E'}  # Example labels for hand gesture classes
+labels_dict = {0: 'A', 1: 'B', 2: 'C', 3:'D', 4:'E', 5:'F', 6:'G', 7:'H'}  # Example labels for hand gesture classes
 
 # Main loop for real-time video processing
 while True:

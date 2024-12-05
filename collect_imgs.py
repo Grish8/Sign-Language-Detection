@@ -1,5 +1,5 @@
-import os  # Import the os module for interacting with the operating system (e.g., file system operations)
-import cv2  # Import OpenCV for image and video processing
+import os  # For interacting with the file system
+import cv2  # For image and video processing
 
 # Directory where the dataset will be stored
 DATA_DIR = 'data'
@@ -8,54 +8,63 @@ DATA_DIR = 'data'
 if not os.path.exists(DATA_DIR):
     os.makedirs(DATA_DIR)
 
-# Define the number of classes (categories) for the dataset
-number_of_classes = 5
-
-# Define the number of images to collect for each class
-dataset_size = 100
-
 # Open a connection to the default camera (index 0)
 cap = cv2.VideoCapture(0)
 
-# Loop through each class to collect data
-for j in range(number_of_classes):
+# Inform the user about the process
+print("Press 'q' to quit or 'n' to skip to the next class during data collection.")
+
+while True:
+    # Prompt the user to enter the class name
+    class_name = input("Enter the class name (or type 'exit' to stop): ").strip()
+
+    if class_name.lower() == 'exit':  # Stop if the user types 'exit'
+        print("Exiting the program.")
+        break
+
     # Create a subdirectory for the current class if it doesn't exist
-    if not os.path.exists(os.path.join(DATA_DIR, str(j))):
-        os.makedirs(os.path.join(DATA_DIR, str(j)))
+    class_path = os.path.join(DATA_DIR, class_name)
+    if not os.path.exists(class_path):
+        os.makedirs(class_path)
 
-    # Inform the user which class is being processed
-    print('Collecting data for class {}'.format(j))
+    print(f'Collecting data for class "{class_name}"')
 
-    done = False  # Flag to control readiness prompt
-    while True:  # Display a readiness message to the user
-        ret, frame = cap.read()  # Capture a frame from the camera
-        # Add a message overlay on the frame to prompt the user
-        cv2.putText(frame, 'Ready? Press "Q" ! :)', (100, 50), cv2.FONT_HERSHEY_SIMPLEX, 1.3, (0, 255, 0), 3,
-                    cv2.LINE_AA)
-        cv2.imshow('frame', frame)  # Show the frame to the user
-        # Wait for the user to press 'q' to start data collection
+    # Inform the user to get ready
+    while True:
+        ret, frame = cap.read()
+        cv2.putText(frame, f'Ready? Press "Q" to start for {class_name}', (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1.0, 
+                    (0, 255, 0), 2, cv2.LINE_AA)
+        cv2.imshow('frame', frame)
         key = cv2.waitKey(25)
-        
-        if key == ord('q'):  # Start data collection if 'q' is pressed
+
+        if key == ord('q'):  # Start collecting data
             break
-        elif key == ord('n'):  # Skip to the next class if 'n' is pressed
-            print('Skipping class {}'.format(j))
+        elif key == ord('n'):  # Skip this class
+            print(f'Skipping class "{class_name}".')
             break
 
-    # Initialize a counter to track the number of images collected
+    # If the user chose to skip, go to the next iteration
+    if key == ord('n'):
+        continue
+
+    # Initialize a counter for collected images
     counter = 0
-    while counter < dataset_size:  # Collect images until the dataset size is reached
-        ret, frame = cap.read()  # Capture a frame from the camera
-        cv2.imshow('frame', frame)  # Display the frame
-        cv2.waitKey(25)  # Wait briefly to allow frame rendering
+    dataset_size = 100  # Number of images per class
+    while counter < dataset_size:
+        ret, frame = cap.read()
+        cv2.imshow('frame', frame)
 
-        if key == ord('n'):  # Skip to the next class during collection
-            print('Skipping class {}'.format(j))
+        key = cv2.waitKey(25)
+        if key == ord('n'):  # Allow the user to skip this class
+            print(f'Skipping class "{class_name}" during collection.')
             break
 
-        # Save the current frame as an image file in the respective class directory
-        cv2.imwrite(os.path.join(DATA_DIR, str(j), '{}.jpg'.format(counter)), frame)
-        counter += 1  # Increment the counter
+        # Save the current frame as an image in the respective class directory
+        file_path = os.path.join(class_path, f'{counter}.jpg')
+        cv2.imwrite(file_path, frame)
+        counter += 1
+
+    print(f'Data collection for class "{class_name}" completed.')
 
 # Release the camera resource
 cap.release()
