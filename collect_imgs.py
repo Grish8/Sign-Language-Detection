@@ -34,7 +34,12 @@ for j in range(number_of_classes):
                     cv2.LINE_AA)
         cv2.imshow('frame', frame)  # Show the frame to the user
         # Wait for the user to press 'q' to start data collection
-        if cv2.waitKey(25) == ord('q'):
+        key = cv2.waitKey(25)
+        
+        if key == ord('q'):  # Start data collection if 'q' is pressed
+            break
+        elif key == ord('n'):  # Skip to the next class if 'n' is pressed
+            print('Skipping class {}'.format(j))
             break
 
     # Initialize a counter to track the number of images collected
@@ -43,6 +48,11 @@ for j in range(number_of_classes):
         ret, frame = cap.read()  # Capture a frame from the camera
         cv2.imshow('frame', frame)  # Display the frame
         cv2.waitKey(25)  # Wait briefly to allow frame rendering
+
+        if key == ord('n'):  # Skip to the next class during collection
+            print('Skipping class {}'.format(j))
+            break
+
         # Save the current frame as an image file in the respective class directory
         cv2.imwrite(os.path.join(DATA_DIR, str(j), '{}.jpg'.format(counter)), frame)
         counter += 1  # Increment the counter

@@ -9,9 +9,15 @@ import numpy as np  # Import NumPy for efficient numerical computations
 # Load the data dictionary from a serialized pickle file
 data_dict = pickle.load(open('./data.pickle', 'rb'))  # Load the data and labels from 'data.pickle'
 
-# Extract the data and labels arrays from the dictionary and convert them to NumPy arrays
-data = np.asarray(data_dict['data'])  # Convert the feature data to a NumPy array
-labels = np.asarray(data_dict['labels'])  # Convert the labels to a NumPy array
+# Inspect the lengths of sequences in data_dict['data'] to find the maximum length
+data_lengths = [len(item) for item in data_dict['data']]
+max_length = max(data_lengths)  # Find the length of the longest sequence
+
+# Pad sequences to the maximum length
+data = np.array([np.pad(item, (0, max_length - len(item)), constant_values=0) for item in data_dict['data']])
+
+# Convert the labels to a NumPy array
+labels = np.asarray(data_dict['labels'])
 
 # Split the data into training and testing sets
 x_train, x_test, y_train, y_test = train_test_split(
